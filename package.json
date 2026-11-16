@@ -1,0 +1,7 @@
+{
+  "name": "anderson-moura-site",
+  "private": true,
+  "scripts": {
+    "dev": "bun index.html"
+  }
+}

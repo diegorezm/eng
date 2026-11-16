@@ -1,2 +1,5 @@
+# Todos os buscadores e assistentes de IA podem ler o site
 User-agent: *
 Allow: /
+
+Sitemap: https://www.SEUDOMINIO.com.br/sitemap.xml

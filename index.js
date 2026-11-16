@@ -1,150 +1,83 @@
-document.documentElement.classList.add("js");
+// WhatsApp do Anderson (formato 55 + DDD + número). Número provisório: troque aqui e nos links wa.me do index.html.
+const WA_NUMBER = "5512900000000";
+const DEFAULT_MSG = "Olá, Anderson! Vim pelo site e gostaria de um orçamento.";
+const waLink = (msg) => `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
+const hasIO = "IntersectionObserver" in window;
 
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const revealElements = document.querySelectorAll(".reveal");
+document.querySelectorAll("[data-wa]").forEach((a) => {
+  a.href = waLink(a.dataset.wa || DEFAULT_MSG);
+  a.target = "_blank";
+  a.rel = "noopener";
+});
 
-if (reduceMotion || !("IntersectionObserver" in window)) {
-  revealElements.forEach((element) => element.classList.add("is-visible"));
-} else {
-  const revealObserver = new IntersectionObserver(
-    (entries, observer) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        entry.target.classList.add("is-visible");
-        observer.unobserve(entry.target);
-      });
-    },
-    { threshold: 0.14, rootMargin: "0px 0px -8% 0px" }
-  );
-
-  revealElements.forEach((element) => revealObserver.observe(element));
-}
-
+// Navbar transparente sobre o hero; fundo branco depois dele
 const header = document.querySelector("[data-header]");
-const hero = document.querySelector("#inicio");
-
-if (header && hero && "IntersectionObserver" in window) {
-  const headerObserver = new IntersectionObserver(
-    ([entry]) => header.classList.toggle("is-scrolled", entry.intersectionRatio < 0.9),
-    { threshold: [0.9] }
-  );
-  headerObserver.observe(hero);
+const hero = document.getElementById("inicio");
+if (header && hero && hasIO) {
+  new IntersectionObserver(([entry]) => header.classList.toggle("solid", !entry.isIntersecting), {
+    rootMargin: "-72px 0px 0px 0px",
+  }).observe(hero);
+} else if (header) {
+  header.classList.add("solid");
 }
 
-const menuButton = document.querySelector("[data-menu-toggle]");
-const menu = document.querySelector("[data-menu]");
+// Solicitação de orçamento: situação + cidade geram a mensagem do WhatsApp
+const SERVICES = {
+  reg: { title: "Regularização na prefeitura", msg: "preciso regularizar um imóvel" },
+  proj: { title: "Projeto estrutural", msg: "vou construir/ampliar e preciso de projeto estrutural" },
+  laudo: { title: "Laudo técnico de trincas", msg: "tenho trincas/rachaduras e quero uma avaliação" },
+  obra: { title: "Acompanhamento de obra", msg: "minha obra começou e quero acompanhamento técnico" },
+  outro: { title: "Conversa de orientação", msg: "tenho outra situação e gostaria de uma orientação" },
+};
 
-function closeMenu() {
-  if (!menuButton || !menu) return;
-  menuButton.setAttribute("aria-expanded", "false");
-  menuButton.setAttribute("aria-label", "Abrir menu");
-  menu.classList.remove("is-open");
-  document.body.classList.remove("menu-open");
-}
+const form = document.getElementById("diag");
 
-if (menuButton && menu) {
-  menuButton.addEventListener("click", () => {
-    const willOpen = menuButton.getAttribute("aria-expanded") !== "true";
-    menuButton.setAttribute("aria-expanded", String(willOpen));
-    menuButton.setAttribute("aria-label", willOpen ? "Fechar menu" : "Abrir menu");
-    menu.classList.toggle("is-open", willOpen);
-    document.body.classList.toggle("menu-open", willOpen);
+if (form) {
+  const city = document.getElementById("cidade");
+  const send = document.getElementById("send");
+  const hint = document.getElementById("msg");
+  const result = document.getElementById("result");
+  const defaultHint = hint.textContent;
+  const choice = () => form.querySelector("input[name=s]:checked");
+
+  form.addEventListener("submit", (e) => e.preventDefault());
+
+  form.addEventListener("change", () => {
+    const s = choice();
+    if (s) {
+      result.classList.add("on");
+      document.getElementById("r-label").textContent = "Serviço indicado";
+      document.getElementById("r-title").textContent = SERVICES[s.value].title;
+    }
+    if (s && city.value) {
+      send.href = waLink(`Olá, Anderson! Vim pelo site: ${SERVICES[s.value].msg} em ${city.value}.`);
+      send.target = "_blank";
+      send.rel = "noopener";
+      hint.className = "msg";
+      hint.textContent = defaultHint;
+    }
   });
 
-  menu.querySelectorAll("a").forEach((link) => link.addEventListener("click", closeMenu));
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeMenu();
+  // O botão nunca fica desabilitado: se faltar algo, diz o quê e leva até o campo
+  send.addEventListener("click", (e) => {
+    const s = choice();
+    if (s && city.value) return;
+    e.preventDefault();
+    hint.className = "msg err";
+    if (!s) {
+      hint.textContent = "Selecione uma situação (A a E).";
+      document.getElementById("o1").focus();
+    } else {
+      hint.textContent = "Selecione a cidade do imóvel.";
+      city.focus();
+    }
   });
-}
 
-const contactForm = document.querySelector("#contactForm");
-
-if (contactForm) {
-  const submitButton = contactForm.querySelector("[data-submit-button]");
-  const status = contactForm.querySelector("[data-form-status]");
-  const requiredFields = [...contactForm.querySelectorAll("[required]")];
-
-  const messages = {
-    nome: "Informe seu nome.",
-    telefone: "Informe um telefone para retorno.",
-    cidade: "Informe a cidade da obra.",
-    servico: "Selecione o serviço desejado.",
-    mensagem: "Conte brevemente o que você precisa."
-  };
-
-  function setFieldError(field, message = "") {
-    const error = contactForm.querySelector(`[data-error-for="${field.id}"]`);
-    field.setAttribute("aria-invalid", message ? "true" : "false");
-    if (error) error.textContent = message;
+  // Barra fixa do celular some enquanto o formulário está na tela
+  const sticky = document.querySelector(".sticky");
+  if (sticky && hasIO) {
+    new IntersectionObserver(([entry]) => sticky.classList.toggle("hide", entry.isIntersecting), {
+      threshold: 0.15,
+    }).observe(form);
   }
-
-  requiredFields.forEach((field) => {
-    field.addEventListener("input", () => {
-      if (field.value.trim()) setFieldError(field);
-    });
-    field.addEventListener("change", () => {
-      if (field.value.trim()) setFieldError(field);
-    });
-  });
-
-  contactForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    let firstInvalidField = null;
-
-    requiredFields.forEach((field) => {
-      const isEmpty = !field.value.trim();
-      setFieldError(field, isEmpty ? messages[field.id] : "");
-      if (isEmpty && !firstInvalidField) firstInvalidField = field;
-    });
-
-    if (firstInvalidField) {
-      firstInvalidField.focus();
-      status.hidden = false;
-      status.textContent = "Revise os campos indicados antes de continuar.";
-      return;
-    }
-
-    submitButton.setAttribute("aria-busy", "true");
-    submitButton.textContent = "Preparando";
-    status.hidden = true;
-
-    const data = new FormData(contactForm);
-    const briefing = [
-      "SOLICITAÇÃO DE ORÇAMENTO",
-      "",
-      `Nome: ${data.get("nome")}`,
-      `Telefone: ${data.get("telefone")}`,
-      `Cidade da obra: ${data.get("cidade")}`,
-      `Serviço: ${data.get("servico")}`,
-      "",
-      "Sobre a obra:",
-      data.get("mensagem")
-    ].join("\n");
-
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(briefing);
-      } else {
-        const copyTarget = document.createElement("textarea");
-        copyTarget.value = briefing;
-        copyTarget.setAttribute("readonly", "");
-        copyTarget.style.position = "fixed";
-        copyTarget.style.opacity = "0";
-        document.body.appendChild(copyTarget);
-        copyTarget.select();
-        document.execCommand("copy");
-        copyTarget.remove();
-      }
-
-      status.textContent = "Briefing copiado. Cole a mensagem no WhatsApp ou no e-mail do profissional.";
-      status.hidden = false;
-    } catch {
-      status.textContent = "Não foi possível copiar automaticamente. Selecione o texto preenchido e tente novamente.";
-      status.hidden = false;
-    } finally {
-      submitButton.removeAttribute("aria-busy");
-      submitButton.textContent = "Copiar briefing";
-    }
-  });
 }
